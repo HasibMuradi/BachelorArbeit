@@ -1,3 +1,5 @@
+import time
+
 import torch.nn.parameter
 from torch.nn import Module
 from torch import optim, tensor
@@ -28,76 +30,66 @@ def randomchoice(vector):
     return np.random.choice(np.arange(len(vector)), p=vector / sum(vector))
 
 
-def converge_success(i):
+def create_params():
+    return [np.random.rand() * 0.6 + 0.2, np.random.rand() + 0.2, np.random.rand()]
+
+"""def converge_success(i):
     #variant one: initialize seed only here, set to i.
     #variant two: set to 1 here, set to i thereafter.
-    np.random.seed(1)
+    np.random.seed(10)
     sample_params = create_params()
     sample_params[0] = 0.8
     np.random.seed(i)
-    for i in range(10):
-        try:
-            search_params = create_params()
-            search_params = [search_params[0], sample_params[1], sample_params[2]]
-            gausslist = Main()
+    #for j in range(10):
+        #try:
+    search_params = create_params()
+    search_params = [search_params[0], sample_params[1], sample_params[2]]
+    gausslist = Main1()
 
-            gausslist.thetas = torch.nn.parameter.Parameter(data=torch.tensor(sample_params))
+    gausslist.thetas = torch.nn.parameter.Parameter(data=torch.tensor(sample_params))
+    print("\tSample Params: ", gausslist.thetas)
 
-            #samples = []
-            samples_lhs = []
-            samples_rhs = []
-            for i in range(500):
-                x = gausslist.generate()
-                if (x == []):
-                    samples_lhs.append(x)
-                else:
-                    samples_rhs.append(x)
-
-            gausslist.thetas = torch.nn.parameter.Parameter(data=torch.tensor(search_params))
-            optimizer = optim.SGD(gausslist.parameters(), lr=0.01 / len(samples_lhs+samples_rhs), momentum=0.001)
-            criterion = torch.nn.NLLLoss()
-            optimizer.zero_grad()
-            guesses = []
-            for epoch in range(10):
-                likelihoods = 0
-                undiffs = 0
-                # lhs
-                likelihood = -torch.log(gausslist(samples_lhs))
-                if type(likelihood) is float:
-                    undiffs += 1
-                    likelihoods += likelihood
-                else:
-                    likelihoods += likelihood.item()
-                    likelihood.backward(retain_graph=True)
-                # rhs
-                samples = gausslist(samples_rhs)
-                for elem in samples:
-                    likelihood = -torch.log(elem)
-                    if type(likelihood) is float:
-                        undiffs += 1
-                        likelihoods += likelihood
-                    else:
-                        likelihoods += likelihood.item()
-                        likelihood.backward(retain_graph=True)
-                        # print("\t", gausslist.thetas.grad)
-
-                print("iteration report:")
-                print("\taggregate likelihood = {}".format(likelihoods / len(samples_lhs+samples_rhs)))
-                print("\t", gausslist.thetas.grad)
-                optimizer.step()
-                optimizer.zero_grad()
-                print("\t{} / {} samples are undiff".format(undiffs, len(samples_lhs+samples_rhs)))
-                print("\t", gausslist.thetas)
-                guesses.append([gausslist.thetas[0].item() ,gausslist.thetas[1].item() ,gausslist.thetas[2].item()])
-            guesses = np.array(guesses)
-            print(guesses)
-            print(guesses.shape)
-            return (guesses, sample_params)
-        except Exception:
-            print("Failed to converge, iteration: {}".format(i))
-
-class Main(Module):
-    def forward(self, samples):
+    samples = []
+    for n in range(500):
+        x = gausslist.generate()
+        # print(x)
+        # print(gausslist.forward(x))
+        # print()
+        # if x != []:
+        samples.append(x)
+    gausslist.thetas = torch.nn.parameter.Parameter(data=torch.tensor(search_params))
+    print("\t", gausslist.thetas)
+    optimizer = optim.SGD(gausslist.parameters(), lr=0.01 / len(samples), momentum=0.001)
+    criterion = torch.nn.NLLLoss()
+    optimizer.zero_grad()
+    guesses = []
+    for epoch in range(10):
+        likelihoods = 0
+        undiffs = 0
+        for sample in samples:
+            likelihood = -torch.log(gausslist(sample))
+            if type(likelihood) is float:
+                undiffs += 1
+                likelihoods += likelihood
+            else:
+                likelihoods += likelihood.item()
+                likelihood.backward(retain_graph=True)
+        print("iteration report: ", epoch)
+        print("\taggregate likelihood = {}".format(likelihoods / len(samples)))
+        print("\t", gausslist.thetas.grad)
+        optimizer.step()
+        optimizer.zero_grad()
+        print("\t{} / {} samples are undiff".format(undiffs, len(samples)))
+        print("\t", gausslist.thetas)
+        guesses.append([gausslist.thetas[0].item() ,gausslist.thetas[1].item() ,gausslist.thetas[2].item()])
+    guesses = np.array(guesses)
+    print(guesses)
+    print(guesses.shape)
+    return (guesses, sample_params)
+        #except Exception:
+            #print("Failed to converge, iteration: {}".format(i))
+class Main1(Module):
+    def forward(self, sample):
         if (1.0 >= self.thetas[0]):
             l_4_high = self.thetas[0]
         else:
@@ -108,20 +100,89 @@ class Main(Module):
             l_5_lhs_integral = (l_4_high - 0.0)
         l_1_cond = (1.0 - l_5_lhs_integral)
 
-        def forward_helper(self, sample):
-            return ((l_1_cond * (1.0 if (sample == []) else 0.0))
-                    + ((1.0 - l_1_cond) * (0.0 if (sample == [])
-                        else ((density_IRNormal((((sample)[0] - self.thetas[2]) / self.thetas[1]))
-                        / self.thetas[1]) * forward_helper(self, (sample)[1:])))))
+        return ((l_1_cond * (1.0 if (sample == []) else 0.0)) + ((1.0 - l_1_cond) * (0.0 if (sample == []) else ((density_IRNormal((((sample)[0] - self.thetas[2]) / self.thetas[1])) / self.thetas[1]) * self.forward((sample)[1:])))))
 
-        if (samples[0] == []):
-            return l_1_cond
+    def generate(self):
+        if (rand() >= self.thetas[0]):
+            return []
         else:
-            result = []
-            for sample in samples:
-                tmp = forward_helper(self, sample)
-                result.append(tmp)
-            return result
+            return [((randn() * self.thetas[1]) + self.thetas[2])] + self.generate()"""
+
+
+def batch_converge_success(i):
+    #variant one: initialize seed only here, set to i.
+    #variant two: set to 1 here, set to i thereafter.
+    np.random.seed(10)
+    sample_params = create_params()
+    sample_params[0] = 0.8
+    np.random.seed(i)
+
+    search_params = create_params()
+    search_params = [search_params[0], sample_params[1], sample_params[2]]
+    gausslist = Main()
+
+    gausslist.thetas = torch.nn.parameter.Parameter(data=torch.tensor(sample_params))
+
+    batches_of_samples = []
+    for n in range(500):
+        x = gausslist.generate()
+        flag = False
+        index = 0
+        for batch in batches_of_samples:
+            if (len(x) < len(batch[0])):
+                break
+            else:
+                if (len(x) == len(batch[0])):
+                    batch.append(x)
+                    flag = True
+            index += 1
+        if (flag == False):
+            batches_of_samples.insert(index, [x])
+
+    samples_length = sum(len(batch) for batch in batches_of_samples)
+    for batch in batches_of_samples:
+        print("sam: ", len(batch), len(batch[0]))
+    print("batches: ", len(batches_of_samples))
+    gausslist.thetas = torch.nn.parameter.Parameter(data=torch.tensor(search_params))
+    optimizer = optim.SGD(gausslist.parameters(), lr=0.01 / samples_length, momentum=0.001)
+    criterion = torch.nn.NLLLoss()
+    optimizer.zero_grad()
+    guesses = []
+    for epoch in range(10):
+        likelihoods = 0
+        for batch in batches_of_samples:
+            likelihood = -torch.log(gausslist(batch))
+            likelihood = torch.sum(likelihood)
+            likelihoods += likelihood.item()
+            likelihood.backward(retain_graph=True)
+        print("iteration report:", epoch)
+        print("\taggregate likelihood = {}".format(likelihoods / samples_length))
+        print("\t", gausslist.thetas.grad)
+        optimizer.step()
+        optimizer.zero_grad()
+        guesses.append([gausslist.thetas[0].item() ,gausslist.thetas[1].item() ,gausslist.thetas[2].item()])
+
+    guesses = np.array(guesses)
+    print(guesses)
+    print(guesses.shape)
+    return (guesses, sample_params)
+
+class Main(Module):
+    def forward(self, batch):
+        if (1.0 >= self.thetas[0]):
+            l_4_high = self.thetas[0]
+        else:
+            l_4_high = 1.0
+        if (0.0 >= l_4_high):
+            l_5_lhs_integral = 0.0
+        else:
+            l_5_lhs_integral = (l_4_high - 0.0)
+        l_1_cond = (1.0 - l_5_lhs_integral)
+
+        result = torch.ones(len(batch))
+        for i in range(len(batch[0])):
+            result *= ((1.0 - l_1_cond) * ((density_IRNormal((torch.tensor(batch)[:,i] - self.thetas[2]) / self.thetas[1]) / self.thetas[1])))
+        return result * l_1_cond
 
     def generate(self):
         if (rand() >= self.thetas[0]):
@@ -129,93 +190,41 @@ class Main(Module):
         else:
             return [((randn() * self.thetas[1]) + self.thetas[2])] + self.generate()
 
+
 def exp1():
-    gausslist = Main()
-    gausslist.thetas = torch.nn.parameter.Parameter(data=torch.tensor([0.5, 1, 0]))
-    samples = [gausslist.generate() for s_id in range(1000)]
-    gausslist.thetas = torch.nn.parameter.Parameter(data=torch.tensor([0.8, 3, 0.5]))
-    print(samples)
-    optimizer = optim.SGD(gausslist.parameters(), lr=0.00003, momentum=0.9)
-    sample1 = []
-    l = gausslist(sample1)
-    gradient = l.backward(retain_graph=True)
+    color = iter(plt.cm.rainbow(np.linspace(0, 1, 10)))
+    recurser = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9]
 
-    print("Gradient on empty list: ", gausslist.thetas.grad)
-    print("Gradient of list length on 1-lists:")
-    grads = []
-    lls = []
-    xs = []
-    for sample in samples:
-        print(sample)
-        if len(sample) == 1:
-            optimizer.zero_grad()
-            l = gausslist(sample)
-            l.backward(retain_graph=True)
-            lls.append(l.item())
-            grads.append(gausslist.thetas.grad[0].item())
-            xs.append([sample[0].item(), gausslist.thetas.grad[1].item(), gausslist.thetas.grad[2].item()])
-    print(grads)
-    plt.scatter(grads, lls)
-    plt.xlabel("gradient strength")
-    plt.ylabel("likelihood")
-    plt.show()
-    print(xs)
-    xs = np.array(xs)
-    print(xs)
-    print(xs.shape)
-    plt.scatter(xs[:, 0], xs[:, 1])
-    plt.xlabel("val of x in [x] sample")
-    plt.ylabel("gradient of theta[1] (var)")
-    plt.show()
-    plt.scatter(xs[:, 0], xs[:, 2])
-    plt.xlabel("val of x in [x] sample")
-    plt.ylabel("gradient of theta[2] (mean)")
-    print("min: {}, max {}".format(min(xs[:, 2]), max(xs[:, 2])))
-    plt.show()
+    c = next(color)
+    execution_times1 = []
+    for i in range(10):
+        start_time1 = time.time()
+        guesses, sample_params = batch_converge_success(i)
+        end_time1 = time.time()
+        execution_time1 = end_time1 - start_time1
+        execution_times1.append(execution_time1)
 
-    print("Gradient of list length on 2-lists:")
-    grads = []
-    lls = []
-    for sample in samples:
-        if len(sample) == 2:
-            optimizer.zero_grad()
-            l = gausslist(sample)
-            l.backward(retain_graph=True)
-            lls.append(l.item())
-            print(gausslist.thetas.grad[2].item())
-            grads.append(gausslist.thetas.grad[0].item())
-    print(grads)
-    plt.scatter(grads, lls)
-    plt.show()
+    c = next(color)
+    execution_times2 = []
+    for i in range(10):
+        start_time2 = time.time()
+        guesses, sample_params = converge_success(i)
+        end_time2 = time.time()
+        execution_time2 = end_time2 - start_time2
+        execution_times2.append(execution_time2)
 
-def create_params():
-    return [np.random.rand() * 0.6 + 0.2, np.random.rand() + 0.2, np.random.rand()]
+    plt.scatter(recurser, execution_times1, marker='o', label="Batch execution")
+    plt.scatter(recurser, execution_times2, marker='+', label="Sequential execution")
+    plt.xlabel("Recurser")
+    plt.ylabel("Execution time (s)")
+    plt.legend()
+    plt.show()
 
 def exp2():
     color = iter(plt.cm.rainbow(np.linspace(0, 1, 10)))
     for i in range(10):
         c = next(color)
-        guesses, sample_params = converge_success(i)
-        tgt = sample_params[0]
-        graph = guesses[:, 0]
-        bad = False
-        graph = graph - np.ones_like(guesses[:, 0]) * tgt
-        if graph[0] > 0 and graph[-1] < 0:
-            bad = True
-        if graph[0] < 0 and graph[-1] > 0:
-            bad = True
-        if abs(graph[0]) < abs(graph[-1]):
-            bad=True
-        bad = True
-        if bad:
-            plt.plot(guesses[:, 0], color=c, label="recurser{}".format(i))
-            plt.plot(np.ones_like(guesses[:, 0]) * sample_params[0], color=c, linestyle="dashed")
-    plt.legend()
-    plt.show()
-    color = iter(plt.cm.rainbow(np.linspace(0, 1, 5)))
-    for i in range(5, 10):
-        c = next(color)
-        guesses, sample_params = converge_success(i)
+        guesses, sample_params = batch_converge_success(i)
         tgt = sample_params[0]
         graph = guesses[:, 0]
         bad = False
@@ -233,25 +242,8 @@ def exp2():
     plt.legend()
     plt.show()
 
-    for i in range(10):
-        guesses, sample_params = converge_success(i)
-        plt.plot(guesses[:, 0], color="orange", label="recurser")
-        plt.plot(np.ones_like(guesses[:, 0]) * sample_params[0], color="orange", linestyle="dashed")
-        plt.plot(guesses[:, 1], color="green", label="sigma")
-        plt.plot(np.ones_like(guesses[:, 0]) * sample_params[1], color="green", linestyle="dashed")
-        plt.plot(guesses[:, 2], color="blue", label="mu")
-        plt.plot(np.ones_like(guesses[:, 0]) * sample_params[2], color="blue", linestyle="dashed")
-        plt.legend()
-        plt.show()
 
-def exp3():
-    gausslist = Main()
-    gausslist.thetas = torch.nn.parameter.Parameter(data=torch.tensor([0.5, 1, 0]))
-    samples = [gausslist.generate() for s_id in range(30)]
-    for sample in samples:
-        print(sample)
-#    print(samples)
+exp1()
+#exp2()
 
-#exp1()
-exp2()
-#exp3()
+#converge_success(1)
