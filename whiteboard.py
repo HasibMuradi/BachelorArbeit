@@ -100,6 +100,7 @@ class Main_matrix(Module):
         for i in range(len(batch)):
             batch_matrix.append(batch[i] + [torch.tensor(0)] * max(0, max_sample_length - len(batch[i])))
             index_matrix.append([torch.tensor(1)] * len(batch[i]) + [torch.tensor(0)] * max(0, max_sample_length - len(batch[i])))
+            print(batch_matrix[i])
         batch_matrix = torch.tensor(batch_matrix)
         index_matrix = torch.tensor(index_matrix)
 
@@ -187,7 +188,6 @@ class Main_vertical(Module):
             result[index[i]] *= ((1.0 - l_1_cond) * (density_IRNormal((torch.tensor(list[i]) - self.thetas[2]) / self.thetas[1]) / self.thetas[1]))
 
         return result * l_1_cond
-
 
     def generate(self):
         if (rand() >= self.thetas[0]):
@@ -338,9 +338,13 @@ class Main_flattening(Module):
                 indices += [i] * len(batch[i])
                 flattened_list += batch[i]
 
-        return ((torch.ones(len(batch))
+        """return ((torch.ones(len(batch))
                  .index_reduce_(0, tensor(indices), ((1.0 - l_1_cond) * (density_IRNormal((tensor(flattened_list) - self.thetas[2]) / self.thetas[1]) / self.thetas[1])),'prod'))
-                * l_1_cond)
+                * l_1_cond)"""
+
+        result = torch.ones(len(batch))
+        result[tensor(indices)] *= ((1.0 - l_1_cond) * (density_IRNormal((tensor(flattened_list) - self.thetas[2]) / self.thetas[1]) / self.thetas[1]))
+        return result * l_1_cond
 
 
     def generate(self):
@@ -394,4 +398,5 @@ def exp_convergence():
 
 #exp_performance()
 exp_convergence()
+#converge_success_matrix(0)
 

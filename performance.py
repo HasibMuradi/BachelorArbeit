@@ -338,4 +338,4 @@ def exp_performance_all(random_variable, sample_size, epoch, batch_size):
 
 
 #converge_success_minibatch_gpu(0, 500, 10, 100)
-#exp_performance_all(0, 500, 1, 100)
+exp_performance_all(0, 500, 1, 100)

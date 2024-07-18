@@ -34,62 +34,49 @@ def randomchoice(vector):
 def create_params():
     return [np.random.rand() * 0.6 + 0.2, np.random.rand() + 0.2, np.random.rand()]
 
-def converge_success(i):
-    #variant one: initialize seed only here, set to i.
-    #variant two: set to 1 here, set to i thereafter.
+
+def converge_success(random_seed, epoch, training_data_length, test_data_length):
+
     np.random.seed(10)
     sample_params = create_params()
     sample_params[0] = 0.8
-    np.random.seed(i)
-    #for j in range(10):
-        #try:
+    np.random.seed(random_seed)
     search_params = create_params()
     search_params = [search_params[0], sample_params[1], sample_params[2]]
-    gausslist = Main1()
 
+    gausslist = Main()
     gausslist.thetas = torch.nn.parameter.Parameter(data=torch.tensor(sample_params))
-    print("\tSample Params: ", gausslist.thetas)
 
-    samples = []
-    for n in range(500):
-        x = gausslist.generate()
-        # print(x)
-        # print(gausslist.forward(x))
-        # print()
-        # if x != []:
-        samples.append(x)
+    training = []
+    test = []
+    for _ in range(training_data_length):
+        training.append(gausslist.generate())
+    for _ in range(test_data_length):
+        test.append(gausslist.generate())
+
     gausslist.thetas = torch.nn.parameter.Parameter(data=torch.tensor(search_params))
-    print("\t", gausslist.thetas)
-    optimizer = optim.SGD(gausslist.parameters(), lr=0.01 / len(samples), momentum=0.001)
+    optimizer = optim.SGD(gausslist.parameters(), lr=0.01 / len(training), momentum=0.001)
     criterion = torch.nn.NLLLoss()
     optimizer.zero_grad()
+
     guesses = []
-    for epoch in range(10):
-        likelihoods = 0
-        undiffs = 0
-        for sample in samples:
+    for epo in range(epoch):
+        for sample in training:
             likelihood = -torch.log(gausslist(sample))
-            if type(likelihood) is float:
-                undiffs += 1
-                likelihoods += likelihood
-            else:
-                likelihoods += likelihood.item()
-                likelihood.backward(retain_graph=True)
-        print("iteration report: ", epoch)
-        print("\taggregate likelihood = {}".format(likelihoods / len(samples)))
+            likelihood.backward(retain_graph=True)
+
+        print("Epoch report: ", epo)
         print("\t", gausslist.thetas.grad)
         optimizer.step()
         optimizer.zero_grad()
-        print("\t{} / {} samples are undiff".format(undiffs, len(samples)))
-        print("\t", gausslist.thetas)
-        guesses.append([gausslist.thetas[0].item() ,gausslist.thetas[1].item() ,gausslist.thetas[2].item()])
+        guesses.append([gausslist.thetas[0].item(), gausslist.thetas[1].item(), gausslist.thetas[2].item()])
     guesses = np.array(guesses)
     print(guesses)
     print(guesses.shape)
-    return (guesses, sample_params)
-        #except Exception:
-            #print("Failed to converge, iteration: {}".format(i))
-class Main1(Module):
+
+    return gausslist, training, test, search_params
+
+class Main(Module):
     def forward(self, sample):
         if (1.0 >= self.thetas[0]):
             l_4_high = self.thetas[0]
@@ -114,64 +101,32 @@ class Main1(Module):
             return [((randn() * self.thetas[1]) + self.thetas[2])] + self.generate()
 
 
-def batch_converge_success(i):
-    #variant one: initialize seed only here, set to i.
-    #variant two: set to 1 here, set to i thereafter.
-    np.random.seed(10)
-    sample_params = create_params()
-    sample_params[0] = 0.8
-    np.random.seed(i)
+def converge_success_sequential(epoch, samples, params):
 
-    search_params = create_params()
-    search_params = [search_params[0], sample_params[1], sample_params[2]]
-    gausslist = Main()
-
-    gausslist.thetas = torch.nn.parameter.Parameter(data=torch.tensor(sample_params))
-
-    batches_of_samples = []
-    for n in range(500):
-        x = gausslist.generate()
-        flag = False
-        index = 0
-        for batch in batches_of_samples:
-            if (len(x) < len(batch[0])):
-                break
-            else:
-                if (len(x) == len(batch[0])):
-                    batch.append(x)
-                    flag = True
-            index += 1
-        if (flag == False):
-            batches_of_samples.insert(index, [x])
-
-    samples_length = sum(len(batch) for batch in batches_of_samples)
-    """for batch in batches_of_samples:
-        print("sam: ", len(batch), len(batch[0]))
-    print("batches: ", len(batches_of_samples))"""
-    gausslist.thetas = torch.nn.parameter.Parameter(data=torch.tensor(search_params))
-    optimizer = optim.SGD(gausslist.parameters(), lr=0.01 / samples_length, momentum=0.001)
+    gausslist = Main_sequential()
+    gausslist.thetas = torch.nn.parameter.Parameter(data=torch.tensor(params))
+    optimizer = optim.SGD(gausslist.parameters(), lr=0.01 / len(samples), momentum=0.001)
     criterion = torch.nn.NLLLoss()
     optimizer.zero_grad()
+
     guesses = []
-    for epoch in range(10):
-        for batch in batches_of_samples:
-            if (len(batch)>=i):
-                likelihood = -torch.log(gausslist(batch))
-                likelihood = torch.sum(likelihood)
-                likelihood.backward(retain_graph=True)
-        print("iteration report:", epoch)
+    for epo in range(epoch):
+        for sample in samples:
+            likelihood = -torch.log(gausslist(sample))
+            likelihood.backward(retain_graph=True)
+
+        print("Epoch report: ", epo)
         print("\t", gausslist.thetas.grad)
         optimizer.step()
         optimizer.zero_grad()
-        guesses.append([gausslist.thetas[0].item() ,gausslist.thetas[1].item() ,gausslist.thetas[2].item()])
-
+        guesses.append([gausslist.thetas[0].item(), gausslist.thetas[1].item(), gausslist.thetas[2].item()])
     guesses = np.array(guesses)
     print(guesses)
     print(guesses.shape)
-    return (guesses, sample_params)
+    return gausslist
 
-class Main(Module):
-    def forward(self, batch):
+class Main_sequential(Module):
+    def forward(self, sample):
         if (1.0 >= self.thetas[0]):
             l_4_high = self.thetas[0]
         else:
@@ -182,8 +137,11 @@ class Main(Module):
             l_5_lhs_integral = (l_4_high - 0.0)
         l_1_cond = (1.0 - l_5_lhs_integral)
 
-        return l_1_cond * torch.prod(((1.0 - l_1_cond)
-                  * ((density_IRNormal((torch.tensor(batch)[:, :] - self.thetas[2]) / self.thetas[1]) / self.thetas[1]))), dim=1)
+        return ((l_1_cond * (1.0 if (sample == []) else 0.0))
+                + ((1.0 - l_1_cond)
+                   * (0.0 if (sample == []) else
+                      ((density_IRNormal((((sample)[0] - self.thetas[2]) / self.thetas[1])) / self.thetas[1])
+                       * self.forward((sample)[1:])))))
 
     def generate(self):
         if (rand() >= self.thetas[0]):
@@ -191,111 +149,183 @@ class Main(Module):
         else:
             return [((randn() * self.thetas[1]) + self.thetas[2])] + self.generate()
 
+
+def converge_success_padding(epoch, batch_size, samples, params):
+
+    gausslist = Main_padding()
+    gausslist.thetas = torch.nn.parameter.Parameter(data=torch.tensor(params))
+    optimizer = optim.SGD(gausslist.parameters(), lr=0.01/len(samples), momentum=0.001)
+    criterion = torch.nn.NLLLoss()
+    optimizer.zero_grad()
+
+    # Preprocessing for padding
+    batch = []
+    index = []
+    for n in range(int(len(samples)/batch_size)):
+        max_sample_length = max([len(sample) for sample in samples[batch_size * n: batch_size * n + batch_size]])
+        batch_matrix = []
+        index_matrix = []
+        for i in range(batch_size * n, batch_size * n + batch_size):
+            batch_matrix.append(samples[i] + [torch.tensor(0)] * max(0, max_sample_length - len(samples[i])))
+            index_matrix.append([torch.tensor(1)] * len(samples[i]) + [torch.tensor(0)] * max(0, max_sample_length - len(samples[i])))
+        batch.append(batch_matrix)
+        index.append(index_matrix)
+
+    guesses = []
+    for epo in range(epoch):
+        for i in range(len(index)):
+            likelihood = -torch.log(gausslist(tensor(index[i]), tensor(batch[i])))
+            likelihood = torch.sum(likelihood)
+            likelihood.backward(retain_graph=True)
+            optimizer.step()
+            optimizer.zero_grad()
+            guesses.append([gausslist.thetas[0].item(), gausslist.thetas[1].item(), gausslist.thetas[2].item()])
+
+        print("Epoch report: ", epo)
+        print("\t", gausslist.thetas)
+    guesses = np.array(guesses)
+    print(guesses)
+    print(guesses.shape)
+    return gausslist
+
+class Main_padding(Module):
+    def forward(self, index_matrix, batch_matrix):
+        if (1.0 >= self.thetas[0]):
+            l_4_high = self.thetas[0]
+        else:
+            l_4_high = 1.0
+        if (0.0 >= l_4_high):
+            l_5_lhs_integral = 0.0
+        else:
+            l_5_lhs_integral = (l_4_high - 0.0)
+        l_1_cond = (1.0 - l_5_lhs_integral)
+
+        return torch.prod((((1.0 - l_1_cond) * (density_IRNormal((batch_matrix - self.thetas[2]) / self.thetas[1]) / self.thetas[1])) * index_matrix) + (1-index_matrix),
+                          dim=1) * l_1_cond
+
+    def generate(self):
+        if (rand() >= self.thetas[0]):
+            return []
+        else:
+            return [((randn() * self.thetas[1]) + self.thetas[2])] + self.generate()
+
+
+
+def converge_success_flattening(epoch, batch_size, samples, params):
+
+    gausslist = Main_flattening()
+    gausslist.thetas = torch.nn.parameter.Parameter(data=torch.tensor(params))
+    optimizer = optim.SGD(gausslist.parameters(), lr=0.01 / len(samples), momentum=0.001)
+    criterion = torch.nn.NLLLoss()
+    optimizer.zero_grad()
+
+    indices_lists = []
+    flattened_lists = []
+    for i in range(int(len(samples)/batch_size)):
+        indices = []
+        flattened_list = []
+        j = 0
+        for sample in samples[batch_size*i: batch_size*i+batch_size]:
+            if sample:
+                indices += [j] * len(sample)
+                flattened_list += sample
+            j += 1
+        if indices:
+            indices_lists.append(indices)
+            flattened_lists.append(flattened_list)
+
+    guesses = []
+    for epo in range(epoch):
+        for i in range(int(len(samples)/batch_size)):
+            likelihood = -torch.log(gausslist(batch_size, tensor(indices_lists[i]), tensor(flattened_lists[i])))
+            likelihood = torch.sum(likelihood)
+            likelihood.backward(retain_graph=True)
+            optimizer.step()
+            optimizer.zero_grad()
+            guesses.append([gausslist.thetas[0].item(), gausslist.thetas[1].item(), gausslist.thetas[2].item()])
+
+        print("Epoch report: ", epo)
+        print("\t", gausslist.thetas)
+    guesses = np.array(guesses)
+    print(guesses)
+    print(guesses.shape)
+    return gausslist
+
+
+class Main_flattening(Module):
+    def forward(self, batch, indices, flattened_list):
+        if (1.0 >= self.thetas[0]):
+            l_4_high = self.thetas[0]
+        else:
+            l_4_high = 1.0
+        if (0.0 >= l_4_high):
+            l_5_lhs_integral = 0.0
+        else:
+            l_5_lhs_integral = (l_4_high - 0.0)
+        l_1_cond = (1.0 - l_5_lhs_integral)
+
+        return ((torch.ones(batch).index_reduce_(0, indices,
+                ((1.0 - l_1_cond) * (density_IRNormal((flattened_list - self.thetas[2])
+                    /self.thetas[1]) / self.thetas[1])), 'prod')) * l_1_cond)
+
+    def generate(self):
+        if (rand() >= self.thetas[0]):
+            return []
+        else:
+            return [((randn() * self.thetas[1]) + self.thetas[2])] + self.generate()
+
+
 def exp_convergence():
-    color = iter(plt.cm.rainbow(np.linspace(0, 1, 10)))
-    for i in range(10):
-        c = next(color)
-        guesses, sample_params = converge_success(i)
-        tgt = sample_params[0]
-        graph = guesses[:, 0]
-        bad = False
-        graph = graph - np.ones_like(guesses[:, 0]) * tgt
-        if graph[0] > 0 and graph[-1] < 0:
-            bad = True
-        if graph[0] < 0 and graph[-1] > 0:
-            bad = True
-        if abs(graph[0]) < abs(graph[-1]):
-            bad=True
-        bad = True
-        if bad:
-            plt.plot(guesses[:, 0], color=c, label="recurser{}".format(i))
-            plt.plot(np.ones_like(guesses[:, 0]) * sample_params[0], color=c, linestyle="dashed")
-    plt.xlabel("Epoch")
-    plt.ylabel("Loss")
-    plt.legend()
-    plt.savefig('exp_conv.png')
-    plt.show()
 
-def exp_batch_convergence():
-    color = iter(plt.cm.rainbow(np.linspace(0, 1, 10)))
-    for i in range(10):
-        c = next(color)
-        guesses, sample_params = batch_converge_success(i)
-        tgt = sample_params[0]
-        graph = guesses[:, 0]
-        bad = False
-        graph = graph - np.ones_like(guesses[:, 0]) * tgt
-        if graph[0] > 0 and graph[-1] < 0:
-            bad = True
-        if graph[0] < 0 and graph[-1] > 0:
-            bad = True
-        if abs(graph[0]) < abs(graph[-1]):
-            bad = True
-        bad = True
-        if bad:
-            plt.plot(guesses[:, 0], color=c, label="recurser{}".format(i))
-            plt.plot(np.ones_like(guesses[:, 0]) * sample_params[0], color=c, linestyle="dashed")
-    plt.xlabel("Epoch")
-    plt.ylabel("Loss")
-    plt.legend()
-    plt.savefig('exp_large_batch_convergence.png')
-    plt.show()
+    gausslist, training_data, test_data, params = converge_success(21, 10, 500, 500)
 
-def exp_large_batch_performance():
-    color = iter(plt.cm.rainbow(np.linspace(0, 1, 10)))
-    recurser = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9]
+    gausslist_sequential = converge_success_sequential(10, training_data, params)
 
-    c = next(color)
-    execution_times1 = []
-    for i in range(10):
-        start_time1 = time.time()
-        guesses, sample_params = converge_success(i)
-        end_time1 = time.time()
-        execution_time1 = end_time1 - start_time1
-        execution_times1.append(execution_time1)
+    gausslist_padding = converge_success_padding(10, 100, training_data, params)
+    batch = []
+    index = []
+    for n in range(int(len(test_data) / 100)):
+        max_sample_length = max([len(sample) for sample in test_data[100 * n: 100 * n + 100]])
+        batch_matrix = []
+        index_matrix = []
+        for i in range(100 * n, 100 * n + 100):
+            batch_matrix.append(test_data[i] + [torch.tensor(0)] * max(0, max_sample_length - len(test_data[i])))
+            index_matrix.append(
+                [torch.tensor(1)] * len(test_data[i]) + [torch.tensor(0)] * max(0, max_sample_length - len(test_data[i])))
+        batch.append(batch_matrix)
+        index.append(index_matrix)
 
-    c = next(color)
-    execution_times2 = []
-    for i in range(10):
-        start_time2 = time.time()
-        guesses, sample_params = batch_converge_success(i)
-        end_time2 = time.time()
-        execution_time2 = end_time2 - start_time2
-        execution_times2.append(execution_time2)
+    gausslist_flattening = converge_success_flattening(10, 100, training_data, params)
+    indices_lists = []
+    flattened_lists = []
+    for i in range(int(len(test_data) / 100)):
+        indices = []
+        flattened_list = []
+        j = 0
+        for sample in test_data[100 * i: 100 * i + 100]:
+            if sample:
+                indices += [j] * len(sample)
+                flattened_list += sample
+            j += 1
+        if indices:
+            indices_lists.append(indices)
+            flattened_lists.append(flattened_list)
 
-    mean1 = np.mean(execution_times1)
-    mean2 = np.mean(execution_times2)
-    x = round((mean1/mean2), 2)
-    plt.axhline(np.mean(execution_times1), color='gray', linestyle='--')
-    plt.axhline(np.mean(execution_times2), color='gray', linestyle='--', label="{}x faster".format(x))
-    plt.scatter(recurser, execution_times1, marker='o', label="Batch execution")
-    plt.scatter(recurser, execution_times2, marker='+', label="Sequential execution")
-    plt.xlabel("Recurser")
-    plt.ylabel("Execution time (s)")
-    plt.legend()
-    plt.savefig('exp_large_batch_performance.png')
-    plt.show()
+    gausslist_likelihoods = 0
+    gausslist_sequential_likelihoods = 0
+    gausslist_padding_likelihoods = 0
+    gausslist_flattening_likelihoods = 0
+    for sample in test_data:
+        gausslist_likelihoods += -torch.log(gausslist(sample))
+        gausslist_sequential_likelihoods += -torch.log(gausslist_sequential(sample))
+    for i in range(int(len(test_data) / 100)):
+        gausslist_padding_likelihoods += -sum(torch.log(gausslist_padding(tensor(index[i]), tensor(batch[i]))))
+        gausslist_flattening_likelihoods += -sum(torch.log(gausslist_flattening(100, tensor(indices_lists[i]), tensor(flattened_lists[i]))))
 
-def exp_large_batch_stability():
-    color = iter(plt.cm.rainbow(np.linspace(0, 1, 5)))
-    for i in [2,4,6,8]:
-        c = next(color)
-        guesses1, sample_params1 = converge_success(i)
-        guesses2, sample_params2 = batch_converge_success(i)
-        diff = np.sum(guesses1[:, 0] - guesses2[:, 0])
-        plt.plot(guesses1[:, 0], color=c, label="Minimum Batch Size {}: {}".format(i, diff))
-        plt.plot(guesses2[:, 0], color=c)
-        plt.plot(np.ones_like(guesses1[:, 0]) * sample_params1[0], color=c, linestyle="dashed")
-    plt.xlabel("Minimum Batch Size")
-    plt.ylabel("Loss & Performance Difference")
-    plt.legend()
-    plt.savefig('exp_large_batch_stability.png')
-    plt.show()
+    print("Likelihoods of BGD as base: ", gausslist_likelihoods)
+    print("Likelihoods of BGD as comparator: ", gausslist_sequential_likelihoods)
+    print("Likelihoods of MGD using padding approach : ", gausslist_padding_likelihoods)
+    print("Likelihoods of MGD using flattening approach : ", gausslist_flattening_likelihoods)
 
 
-#exp_convergence()
-#exp_batch_convergence()
-#exp_large_batch_performance()
-#exp_large_batch_stability()
-
-
+exp_convergence()

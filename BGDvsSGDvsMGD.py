@@ -57,6 +57,7 @@ def converge_BGD(i, size, epoch):
     optimizer.zero_grad()
 
     guesses = []
+    guesses.append([gausslist.thetas[0].item(), gausslist.thetas[1].item(), gausslist.thetas[2].item()])
     for epo in range(epoch):
         for sample in samples:
             likelihood = -torch.log(gausslist(sample))
@@ -119,6 +120,7 @@ def converge_SGD(i, size, epoch):
     optimizer.zero_grad()
 
     guesses = []
+    guesses.append([gausslist.thetas[0].item(), gausslist.thetas[1].item(), gausslist.thetas[2].item()])
     for epo in range(epoch):
         for sample in samples:
             likelihood = -torch.log(gausslist(sample))
@@ -181,6 +183,7 @@ def converge_MGD(i, size, epoch):
     optimizer.zero_grad()
 
     guesses = []
+    guesses.append([gausslist.thetas[0].item(), gausslist.thetas[1].item(), gausslist.thetas[2].item()])
     for epo in range(epoch):
         for i in range(int(len(samples)/100)):
             likelihood = -torch.log(gausslist(samples[i*100: i*100+100]))
@@ -232,19 +235,26 @@ def exp_convergence_BGDvsSGD(random_variable, sample_size, epoch):
     guesses2, sample_params2 = converge_SGD(random_variable, sample_size, epoch)
     guesses3, sample_params3 = converge_MGD(random_variable, sample_size, epoch)
 
+    plt.axhline(sample_params1[0], color='gray', linestyle='dashed')
+    plt.plot(np.linspace(0, epoch, epoch+1), guesses1[:, 0], color='blue', label="BGD")
+    plt.plot(np.linspace(0, epoch, sample_size * epoch+1), guesses2[:, 0], color="purple", label="SGD")
+    plt.plot(np.linspace(0, epoch, int(sample_size / 100) * epoch+1), guesses3[:, 0], color="orange", label="MGD")
+    """plt.plot(np.linspace(1 / sample_size, epoch, sample_size * epoch), guesses2[:, 0], color="purple", label="SGD")
+    plt.plot(np.linspace(1 / int(sample_size / 100), epoch, int(sample_size / 100) * epoch), guesses3[:, 0],
+             color="orange", label="MGD")
     if epoch == 1:
         plt.plot(np.linspace(1, epoch, epoch), guesses1[:, 0], marker="o", color='blue', label="BGD")
     else:
-        plt.plot(np.linspace(1, epoch, epoch), guesses1[:, 0], color='blue', label="BGD")
-    plt.plot(np.linspace(1/sample_size, epoch, sample_size * epoch), guesses2[:, 0], color="green", label="SGD")
-    plt.plot(np.linspace(1/int(sample_size/100), epoch, int(sample_size/100) * epoch), guesses3[:, 0], color="red", label="MGD")
-    plt.axhline(sample_params1[0], color='gray', linestyle='dashed')
-    plt.xlabel("Epoch")
-    plt.ylabel("Loss")
-    plt.title("Convergence of BGD vs. SGD vs. MGD")
+        plt.plot(np.linspace(1, epoch, epoch), guesses1[:, 0], color='blue', label="BGD")"""
+
+    plt.xlim([0, 20])
+    plt.ylim([0, 1])
+    plt.xlabel("Training epoch")
+    plt.ylabel(r"Learning parameter ($\theta_0$)")
+    plt.title("Convergence of SGD vs. MGD vs. BGD")
     plt.legend()
     plt.savefig("BGSvsSGDvsMGD.png")
     plt.show()
 
 
-exp_convergence_BGDvsSGD(1, 500, 20)
+exp_convergence_BGDvsSGD(21, 500, 20)

@@ -7,6 +7,7 @@ import numpy as np
 import matplotlib.pyplot as plt
 import math
 
+
 def rand():
     return np.random.rand()
 
@@ -65,6 +66,7 @@ def converge_success(i):
     optimizer.zero_grad()
     guesses = []
     for epoch in range(10):
+        print("Param: ", gausslist.thetas[0].item(), gausslist.thetas[1].item(), gausslist.thetas[2].item())
         likelihoods = 0
         undiffs = 0
         for sample in samples:
@@ -142,30 +144,18 @@ def exp_conv():
     for i in range(10):
         c = next(color)
         guesses, sample_params = converge_success(i)
-        tgt = sample_params[0]
-        graph = guesses[:, 0]
-        bad = False
-        graph = graph - np.ones_like(guesses[:, 0]) * tgt
-        if graph[0] > 0 and graph[-1] < 0:
-            bad = True
-        if graph[0] < 0 and graph[-1] > 0:
-            bad = True
-        if abs(graph[0]) < abs(graph[-1]):
-            bad=True
-        bad = True
-        if bad:
-            plt.plot(guesses[:, 0], color=c, label="recurser{}".format(i))
-            plt.plot(np.ones_like(guesses[:, 0]) * sample_params[0], color=c, linestyle="dashed")
+        plt.plot(guesses[:, 0], color=c, label="recurser{}".format(i))
+        plt.plot(sample_params[0], color=c, linestyle="dashed")
     plt.xlabel("Epoch")
     plt.ylabel("Loss")
     plt.legend()
-    plt.savefig('exp_conv.png')
+    #plt.savefig('exp_conv.png')
     plt.show()
 
 
 #exp_batch()
 #exp_minibatch()
-#exp_conv()
+exp_conv()
 #exp_batch_conv()
 #exp_minibatch_conv()
 
